@@ -8,6 +8,10 @@ out/
 
 # Runtime config (may contain API keys; use config.example.json as template)
 /config.json
+/memory.jsonl
+
+# 知識庫實際內容可能含機密，不入庫；範本見 knowledge.example.md
+/assets/knowledge/knowledge.md
 
 # Live2D models are NOT committed (save space + avoid Live2D sample redistribution).
 # They live locally under assets/live2d/<character>/ ; download your own model there.

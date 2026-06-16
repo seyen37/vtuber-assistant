@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('api', {
   sendMessage: (payload) => ipcRenderer.invoke('chat:send', payload),
   listCharacters: () => ipcRenderer.invoke('live2d:list'),
   listOllamaModels: (baseUrl) => ipcRenderer.invoke('ollama:tags', baseUrl),
+  transcribe: (payload) => ipcRenderer.invoke('asr:transcribe', payload),
+  clearMemory: () => ipcRenderer.invoke('memory:clear'),
+  memoryStats: () => ipcRenderer.invoke('memory:stats'),
+  kbStats: () => ipcRenderer.invoke('kb:stats'),
   onStatus: (cb) => ipcRenderer.on('chat:status', (_e, s) => cb(s)),
   minimize: () => ipcRenderer.send('window:minimize'),
   close: () => ipcRenderer.send('window:close')

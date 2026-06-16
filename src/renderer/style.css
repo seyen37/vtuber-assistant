@@ -147,3 +147,22 @@ html, body {
 #settings .dd,
 #composer input,
 #composer button { -webkit-app-region: no-drag; }
+
+/* 語音輸入麥克風鈕 */
+#btn-mic {
+  -webkit-app-region: no-drag;
+  padding: 0 12px; border: none; border-radius: 10px; cursor: pointer;
+  background: rgba(255,255,255,0.10); color: var(--text); font-size: 15px;
+}
+#btn-mic:hover { background: rgba(255,255,255,0.20); }
+#btn-mic.recording { background: #ef4444; color: #fff; animation: micpulse 1s infinite; }
+@keyframes micpulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+
+/* Chrome 內建 AI 偵測鈕 */
+#btn-clear-memory,
+#btn-detect-chromeai {
+  -webkit-app-region: no-drag;
+  padding: 7px 12px; border: none; border-radius: 8px; cursor: pointer;
+  background: rgba(255,255,255,0.14); color: var(--text); font-size: 13px;
+}
+#btn-detect-chromeai:hover { background: rgba(255,255,255,0.24); }

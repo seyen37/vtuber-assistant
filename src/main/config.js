@@ -22,6 +22,14 @@ const DEFAULTS = {
   webSearchEnabled: true,
   // 目前選用的 Live2D 角色（指向某個 *.model3.json，路徑相對於內建伺服器根目錄）
   character: '/assets/live2d/hiyori/Hiyori.model3.json',
+  // 語音輸出（TTS，瀏覽器內建語音合成）。ASR（語音輸入）為 v2 預留，尚未實作。
+  speech: { enabled: true, voice: '', rate: 1.0, pitch: 1.0 },
+  // 語音輸入（ASR）：用 OpenAI 相容 /audio/transcriptions（沿用上面的 openai 設定）。
+  asr: { enabled: true, model: 'whisper-1', language: 'zh' },
+  // 本地記憶：對話存到 userData/memory.jsonl，發問時關鍵字回想注入脈絡（純本地、不入庫）。
+  memory: { enabled: true, maxEntries: 500, recallK: 4 },
+  // 知識庫客服模式：依本機知識庫（assets/knowledge/knowledge.md）檢索回答；strict=只依知識庫。
+  kb: { enabled: false, path: '/assets/knowledge/knowledge.md', topK: 4, strict: true },
   systemPrompt:
     '你是一個友善、簡潔的桌面虛擬助手，名字叫小桶（Hiyori）。一律用繁體中文（台灣用語）回答。' +
     '當問題牽涉最新資訊、時事、或你不確定的事實時，先呼叫 web_search 工具查找，再根據結果回答，' +
