@@ -28,7 +28,7 @@ echo === Step 1: git init (branch main) ===
 git init
 git branch -M main
 git config user.name "seyen37"
-git config user.email "seyen37@gmail.com"
+git config user.email "seyen37@users.noreply.github.com"
 git config core.autocrlf false
 
 echo.
