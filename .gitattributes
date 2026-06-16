@@ -1,0 +1,52 @@
+# Force LF on commit (avoid CRLF pollution from Windows / Cowork mount)
+* text=auto eol=lf
+
+# Source code: always LF
+*.py  text eol=lf
+*.sh  text eol=lf
+*.js  text eol=lf
+*.ts  text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+
+# Windows batch / cmd: MUST be CRLF (cmd.exe parser fails on LF-only files)
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Docs / config: always LF
+*.md   text eol=lf
+*.txt  text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+LICENSE    text eol=lf
+.gitignore text eol=lf
+
+# Binary files: never touch
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.pdf  binary
+*.zip  binary
+*.moc3 binary
+
+# Null-byte defense Layer 2: strip \x00 on `git add` (clean filter).
+# Configure per-clone via: bash scripts/git-hooks/install.sh  OR  scripts\git-hooks\install.cmd
+# Without config: identity passthrough (no break). Layer 1 = pre-commit hook, Layer 3 = CI audit.
+*.md   filter=strip-nul
+*.sh   filter=strip-nul
+*.py   filter=strip-nul
+*.ps1  filter=strip-nul
+*.js   filter=strip-nul
+*.css  filter=strip-nul
+*.html filter=strip-nul
+*.json filter=strip-nul
+
+# Live2D editor source / audio: large binaries, never normalize or filter
+*.cmo3 binary
+*.can3 binary
+*.psd  binary
+*.wav  binary
+*.cmox binary

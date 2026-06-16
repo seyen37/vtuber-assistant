@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# pre-commit hook: strip null bytes from staged text files
+#
+# Why: cowork mount can inject null bytes when Python binary mode writes
+# files via the mount. Git's --numstat shows these files as "binary" (the
+# null bytes themselves are why), so naive filtering would skip them.
+# This hook whitelists text-like extensions explicitly.
+#
+# Behavior: never blocks commit. If null bytes found, strip in working
+# tree + re-add (consistent with §8.36 "self-audit 抓錯立刻修 + 順帶解決"
+# discipline and §3.12.2 fail-soft principle).
+#
+# Scope: text-like file extensions only. Binary files (.png, .pdf, etc.)
+# are skipped — those legitimately contain null bytes.
+#
+# See PROJECT_PLAYBOOK.md §3.12.5 + §3.14 for full context.
+
+set -e
+
+# All staged files (works even when --numstat would mark them binary)
+mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR)
+
+[ ${#staged[@]} -eq 0 ] && exit 0
+
+modified=0
+for f in "${staged[@]}"; do
+    # Skip files that don't exist (e.g. already moved)
+    [ ! -f "$f" ] && continue
+
+    # Lowercase basename for extension match
+    base_lower=$(echo "$f" | tr '[:upper:]' '[:lower:]')
+
+    # Only process text-like files (extension or known names)
+    case "$base_lower" in
+        *.md|*.markdown|*.txt|*.rst|*.sh|*.bash|*.ps1|*.py|*.js|*.ts|*.jsx|*.tsx|*.json|*.jsonc|*.yml|*.yaml|*.toml|*.ini|*.cfg|*.conf|*.html|*.css|*.svg|*.xml|*.csv|*.tsv|*.tex|*.adoc|*.org|*.mjs|*.cjs|*.vue|*.go|*.rs|*.c|*.h|*.cpp|*.hpp|*.java|*.kt|*.swift|*.rb|*.php|*.lua|*.sql|*.gql|*.graphql|*makefile|*dockerfile|*.gitignore|*.gitattributes|*.gitmodules|*.env)
+            : # process
+            ;;
+        license|readme|notice|changelog|contributing|authors|maintainers|todo)
+            : # process bare names
+            ;;
+        *)
+            continue
+            ;;
+    esac
+
+    # Count null bytes in STAGED blob (what would actually go into commit)
+    nul=$(git show ":$f" 2>/dev/null | tr -d -c '\000' | wc -c | tr -d ' ')
+
+    if [ "${nul:-0}" -gt 0 ]; then
+        echo "pre-commit: stripping $nul null bytes from $f (cowork mount side effect)"
+        # Strip nulls from working tree, atomic rename
+        tr -d '\000' < "$f" > "$f.strip-nul.tmp"
+        mv "$f.strip-nul.tmp" "$f"
+        # Re-stage so commit content matches working tree
+        git add -- "$f"
+        modified=1
+    fi
+done
+
+if [ $modified -eq 1 ]; then
+    echo "pre-commit: null bytes stripped. Verify with 'git diff --cached --stat'."
+fi
+
+exit 0

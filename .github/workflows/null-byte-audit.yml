@@ -1,0 +1,89 @@
+# Null Byte Audit — Layer 3 of the Cowork-mount null-byte defense stack.
+#
+# Warn-only: never fails the build. Scans every tracked text-like file's git
+# blob (the exact bytes committed) for null bytes injected by the Cowork mount.
+#
+# Defense stack:
+#   Layer 1 hook:   scripts/git-hooks/pre-commit          (at commit time)
+#   Layer 2 filter: .gitattributes filter=strip-nul       (at git add time)
+#   Layer 3 CI:     THIS workflow                          (post-push verification)
+#
+# Install Layer 1+2 per clone:  bash scripts/git-hooks/install.sh
+#                           or:  scripts\git-hooks\install.cmd
+
+name: Null Byte Audit (warn-only)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    name: Scan tracked text files for null bytes
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Scan tracked files for null bytes (warn-only)
+        shell: bash
+        run: |
+          set -e
+          total_files=0
+          flagged_files=0
+          total_nulls=0
+
+          {
+            echo "## Null Byte Audit Results"
+            echo ""
+            echo "Triggered by commit: \`${{ github.sha }}\`"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          while IFS= read -r f; do
+            case "$f" in
+              *.md|*.markdown|*.txt|*.rst|*.sh|*.bash|*.ps1|*.py|*.js|*.ts|*.jsx|*.tsx\
+              |*.json|*.jsonc|*.yml|*.yaml|*.toml|*.ini|*.cfg|*.conf|*.html|*.css|*.svg\
+              |*.xml|*.csv|*.mjs|*.cjs|*.gitignore|*.gitattributes|*.env)
+                : ;;
+              *) continue ;;
+            esac
+
+            total_files=$((total_files + 1))
+            nul=$(git show ":$f" 2>/dev/null | tr -d -c '\000' | wc -c | tr -d ' ')
+
+            if [ "${nul:-0}" -gt 0 ]; then
+              flagged_files=$((flagged_files + 1))
+              total_nulls=$((total_nulls + nul))
+              echo "::warning file=$f::Found $nul null bytes in git blob (Cowork mount side effect)"
+            fi
+          done < <(git ls-files)
+
+          {
+            if [ $flagged_files -gt 0 ]; then
+              echo "### Files with null bytes ($flagged_files / $total_files):"
+              echo ""
+              echo "Fix locally:"
+              echo "\`\`\`bash"
+              echo "bash scripts/git-hooks/install.sh"
+              echo "git add --renormalize ."
+              echo "git commit -m 'fix: strip null bytes via filter renormalize'"
+              echo "git push"
+              echo "\`\`\`"
+            else
+              echo "### All clean"
+              echo ""
+              echo "Scanned **$total_files** tracked text files — **0** with null bytes."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo ""
+          if [ $flagged_files -gt 0 ]; then
+            echo "WARN: $flagged_files file(s) contain null bytes (total: $total_nulls)."
+          else
+            echo "OK: No null bytes found in $total_files tracked text files."
+          fi
+          exit 0

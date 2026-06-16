@@ -1,0 +1,29 @@
+{
+  "name": "desktop-vtuber-assistant",
+  "version": "0.1.0",
+  "description": "輕量桌面 Live2D AI 助手：透明浮窗、可切換 Ollama/雲端 LLM、會上網找資料。",
+  "main": "src/main/main.js",
+  "author": "seyen37",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/test-backend.cjs",
+    "build": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^30.0.9",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.seyen.desktopvtuber",
+    "productName": "DesktopVTuber",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable"
+    }
+  }
+}

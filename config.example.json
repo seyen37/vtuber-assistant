@@ -1,0 +1,20 @@
+{
+  "_說明": "這是設定範例。實際設定在 App 內的「⚙ 設定」面板修改，會存到使用者資料夾的 config.json。此檔僅供參考各欄位。",
+  "provider": "ollama",
+  "ollama": {
+    "baseUrl": "http://localhost:11434",
+    "model": "qwen2.5"
+  },
+  "openai": {
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKey": "",
+    "model": "gpt-4o-mini"
+  },
+  "search": {
+    "provider": "duckduckgo",
+    "tavilyApiKey": "",
+    "maxResults": 5
+  },
+  "webSearchEnabled": true,
+  "systemPrompt": "你是一個友善、簡潔的桌面虛擬助手…"
+}

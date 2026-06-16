@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+*.exe
+
+# Runtime config (may contain API keys; use config.example.json as template)
+/config.json
+
+# Live2D models are NOT committed (save space + avoid Live2D sample redistribution).
+# They live locally under assets/live2d/<character>/ ; download your own model there.
+# Keep the license/how-to note tracked.
+assets/live2d/*
+!assets/live2d/LICENSE-NOTE.md
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
+npm-debug.log*

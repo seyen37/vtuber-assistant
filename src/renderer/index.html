@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>桌面助手</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 標題列：可拖曳移動視窗 -->
+    <div id="titlebar">
+      <span id="title">小桶 · 桌面助手</span>
+      <div class="tb-btns">
+        <button id="btn-settings" title="設定">⚙</button>
+        <button id="btn-min" title="最小化">—</button>
+        <button id="btn-close" title="關閉">✕</button>
+      </div>
+    </div>
+
+    <!-- Live2D 角色舞台（透明，浮在桌面上） -->
+    <div id="stage">
+      <canvas id="live2d"></canvas>
+      <div id="status"></div>
+    </div>
+
+    <!-- 對話區 -->
+    <div id="chat"></div>
+
+    <!-- 輸入列 -->
+    <form id="composer">
+      <input id="input" type="text" placeholder="輸入訊息，Enter 送出…" autocomplete="off" />
+      <button id="send" type="submit">送出</button>
+    </form>
+
+    <!-- 設定面板 -->
+    <div id="settings" class="hidden">
+      <h3>設定</h3>
+
+      <label>角色（Live2D）
+        <select id="cfg-character"></select>
+      </label>
+
+      <label>LLM 來源
+        <select id="cfg-provider">
+          <option value="ollama">本機 Ollama</option>
+          <option value="openai">雲端（OpenAI 相容）</option>
+        </select>
+      </label>
+
+      <fieldset id="grp-ollama">
+        <legend>Ollama（本機）</legend>
+        <label>Base URL <input id="cfg-ollama-url" type="text" placeholder="http://localhost:11434" /></label>
+        <label>模型
+          <span class="inline">
+            <input id="cfg-ollama-model" list="ollama-models" type="text" placeholder="qwen2.5" />
+            <button id="btn-ollama-refresh" type="button" title="偵測本機已安裝的模型">↻</button>
+          </span>
+          <datalist id="ollama-models"></datalist>
+        </label>
+      </fieldset>
+
+      <fieldset id="grp-openai">
+        <legend>雲端（OpenAI 相容）</legend>
+        <label>Base URL <input id="cfg-openai-url" type="text" placeholder="https://api.openai.com/v1" /></label>
+        <label>API Key <input id="cfg-openai-key" type="password" placeholder="sk-…" /></label>
+        <label>模型 <input id="cfg-openai-model" type="text" placeholder="gpt-4o-mini" /></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>找資料（網路搜尋）</legend>
+        <label class="row"><input id="cfg-web" type="checkbox" /> 啟用上網找資料</label>
+        <label>搜尋來源
+          <select id="cfg-search-provider">
+            <option value="duckduckgo">DuckDuckGo（免 key）</option>
+            <option value="tavily">Tavily（需 key）</option>
+          </select>
+        </label>
+        <label id="grp-tavily">Tavily API Key <input id="cfg-tavily-key" type="password" placeholder="tvly-…" /></label>
+      </fieldset>
+
+      <label>人設 / System Prompt
+        <textarea id="cfg-system" rows="4"></textarea>
+      </label>
+
+      <div class="settings-actions">
+        <button id="btn-save">儲存</button>
+        <button id="btn-cancel" type="button">取消</button>
+      </div>
+      <p id="settings-msg"></p>
+    </div>
+  </div>
+
+  <!-- 載入順序很重要：pixi -> cubism core -> cubism4 plugin -->
+  <script src="/assets/vendor/pixi.min.js"></script>
+  <script src="/assets/vendor/live2dcubismcore.min.js"></script>
+  <script src="/assets/vendor/cubism4.min.js"></script>
+  <script src="live2d.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
