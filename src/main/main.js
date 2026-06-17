@@ -103,9 +103,9 @@ function createWindow() {
     callback(true);
   });
 
-  // 開機時套用持久化的點擊穿透設定（置頂於建立視窗時已套用）
+  // 開機一律以「可點擊」狀態啟動：避免上次殘留的穿透狀態讓使用者一開就點不到視窗。
   mainWindow.webContents.once('did-finish-load', () => {
-    applyClickThrough(!!desktop.clickThrough);
+    setDesktop({ clickThrough: false });
   });
 
   mainWindow.on('closed', () => {
@@ -122,9 +122,17 @@ function applyAlwaysOnTop(on) {
 // 讓 Live2D 視線跟隨之類仍可運作。穿透開啟時無法點到本視窗，故一律提供
 // 系統托盤選單與全域快捷鍵（預設 Ctrl/Cmd+Alt+Shift+P）切回，避免「點不回來」。
 function applyClickThrough(on) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.setIgnoreMouseEvents(!!on, { forward: true });
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  // 純切換用法：開啟＝整窗忽略滑鼠（不帶 forward——forward 是給『部分/hover 穿透』用的，
+  // 會讓視窗停在轉發模式而關不掉；目前無視線跟隨需求故不用）；關閉＝恢復。
+  // 搭配 style.css 的微透明背景，關閉後整窗（含透明區）才能恢復可點擊（electron#30116）。
+  if (on) {
+    mainWindow.setIgnoreMouseEvents(true);
+  } else {
+    mainWindow.setIgnoreMouseEvents(false);
+    try { mainWindow.focus(); } catch (_e) {}
   }
+  console.log('[clickThrough]', on ? 'ON（穿透）' : 'OFF（恢復可點）');
 }
 
 function applyAutoLaunch(on) {

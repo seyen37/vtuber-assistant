@@ -14,7 +14,10 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: transparent;
+  /* 肉眼看不見的微透明背景：Windows 上全透明視窗的透明區即使 setIgnoreMouseEvents(false)
+     仍會忽略滑鼠（electron/electron#30116）。給整窗 ~1/255 alpha 讓命中測試視為內容，
+     關閉點擊穿透後整窗才能恢復可點擊。 */
+  background: rgba(0, 0, 0, 0.004);
   font-family: "Segoe UI", "Microsoft JhengHei", system-ui, sans-serif;
   color: var(--text);
   overflow: hidden;
