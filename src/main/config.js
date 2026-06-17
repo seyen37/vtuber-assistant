@@ -30,6 +30,8 @@ const DEFAULTS = {
   memory: { enabled: true, maxEntries: 500, recallK: 4 },
   // 知識庫客服模式：依本機知識庫（assets/knowledge/knowledge.md）檢索回答；strict=只依知識庫。
   kb: { enabled: false, path: '/assets/knowledge/knowledge.md', topK: 4, strict: true },
+  // 桌面/桌寵整合：視窗置頂、開機自啟、點擊穿透（滑鼠穿過角色落到後面的程式）。
+  desktop: { alwaysOnTop: true, autoLaunch: false, clickThrough: false },
   systemPrompt:
     '你是一個友善、簡潔的桌面虛擬助手，名字叫小桶（Hiyori）。一律用繁體中文（台灣用語）回答。' +
     '當問題牽涉最新資訊、時事、或你不確定的事實時，先呼叫 web_search 工具查找，再根據結果回答，' +

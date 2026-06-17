@@ -11,7 +11,11 @@ contextBridge.exposeInMainWorld('api', {
   clearMemory: () => ipcRenderer.invoke('memory:clear'),
   memoryStats: () => ipcRenderer.invoke('memory:stats'),
   kbStats: () => ipcRenderer.invoke('kb:stats'),
+  // 桌面/桌寵整合
+  getDesktop: () => ipcRenderer.invoke('desktop:get'),
+  setDesktop: (partial) => ipcRenderer.invoke('desktop:set', partial),
   onStatus: (cb) => ipcRenderer.on('chat:status', (_e, s) => cb(s)),
+  onOpenSettings: (cb) => ipcRenderer.on('ui:open-settings', () => cb()),
   minimize: () => ipcRenderer.send('window:minimize'),
   close: () => ipcRenderer.send('window:close')
 });

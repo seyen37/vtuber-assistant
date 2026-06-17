@@ -349,6 +349,14 @@ async function loadSettings() {
     $('kb-stats').textContent = '知識庫目前 ' + ((ks && ks.count) || 0) + ' 段內容';
   } catch (_e) {}
 
+  // 桌面 / 桌寵
+  try {
+    const d = (cfg.desktop) || (await window.api.getDesktop()) || {};
+    $('cfg-clickthrough').checked = !!d.clickThrough;
+    $('cfg-ontop').checked = d.alwaysOnTop !== false;
+    $('cfg-autolaunch').checked = !!d.autoLaunch;
+  } catch (_e) {}
+
   toggleProviderGroups();
   toggleTavily();
   return cfg;
@@ -385,6 +393,14 @@ async function saveSettings() {
     systemPrompt: $('cfg-system').value
   };
   await window.api.saveConfig(partial);
+  // 桌面/桌寵設定走專用 IPC（會即時套用視窗行為並持久化）
+  try {
+    await window.api.setDesktop({
+      clickThrough: $('cfg-clickthrough').checked,
+      alwaysOnTop: $('cfg-ontop').checked,
+      autoLaunch: $('cfg-autolaunch').checked
+    });
+  } catch (_e) {}
   updateMuteIcon();
   updateMicUi();
   // 立即套用角色（不必重開程式）
@@ -440,6 +456,10 @@ function bindUI() {
   $('btn-min').addEventListener('click', () => window.api.minimize());
   $('btn-close').addEventListener('click', () => window.api.close());
   window.api.onStatus((s) => showStatus(s));
+  // 系統匣（托盤）「開啟設定…」
+  if (window.api.onOpenSettings) {
+    window.api.onOpenSettings(() => { loadSettings(); $('settings').classList.remove('hidden'); });
+  }
 
   // 語音清單常常是非同步載入
   if (window.speechSynthesis) {

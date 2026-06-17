@@ -32,6 +32,20 @@ function skipTest(name, why) { console.log('  SKIP', name, '(' + why + ')'); ski
     assert.ok(typeof d.character === 'string' && d.character.endsWith('.model3.json'));
   });
 
+  await test('DEFAULTS.desktop 預設值正確', () => {
+    const d = config.DEFAULTS.desktop;
+    assert.ok(d && typeof d === 'object');
+    assert.strictEqual(d.alwaysOnTop, true);
+    assert.strictEqual(d.autoLaunch, false);
+    assert.strictEqual(d.clickThrough, false);
+  });
+  await test('desktop 設定 deepMerge：部分覆寫保留其他鍵', () => {
+    const merged = config.deepMerge(config.DEFAULTS, { desktop: { clickThrough: true } });
+    assert.strictEqual(merged.desktop.clickThrough, true);
+    assert.strictEqual(merged.desktop.alwaysOnTop, true);
+    assert.strictEqual(merged.desktop.autoLaunch, false);
+  });
+
   console.log('\n[llm]');
   await test('safeParseJSON 容錯', () => {
     assert.deepStrictEqual(llm.safeParseJSON('{"a":1}'), { a: 1 });

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, globalShortcut } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -10,8 +10,10 @@ const kb = require('./kb');
 
 // 專案根目錄（src/main/ 往上兩層）。打包後 __dirname 位於 app.asar 內，路徑仍正確。
 const ROOT = path.join(__dirname, '..', '..');
+const ICON_PATH = path.join(ROOT, 'assets', 'icon.png');
 
 let mainWindow = null;
+let tray = null;
 let server = null;
 let serverPort = 0;
 
@@ -68,6 +70,8 @@ function startServer() {
 }
 
 function createWindow() {
+  const cfg = loadConfig();
+  const desktop = cfg.desktop || {};
   mainWindow = new BrowserWindow({
     width: 380,
     height: 660,
@@ -76,8 +80,9 @@ function createWindow() {
     frame: false,
     transparent: true,
     resizable: true,
-    alwaysOnTop: true,
+    alwaysOnTop: desktop.alwaysOnTop !== false,
     skipTaskbar: false,
+    icon: fs.existsSync(ICON_PATH) ? ICON_PATH : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -98,14 +103,113 @@ function createWindow() {
     callback(true);
   });
 
+  // 開機時套用持久化的點擊穿透設定（置頂於建立視窗時已套用）
+  mainWindow.webContents.once('did-finish-load', () => {
+    applyClickThrough(!!desktop.clickThrough);
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
+// ---- 桌面/桌寵整合 ----
+function applyAlwaysOnTop(on) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setAlwaysOnTop(!!on);
+}
+
+// 點擊穿透：滑鼠點擊穿過角色落到後面的程式。forward:true 仍轉發滑鼠移動，
+// 讓 Live2D 視線跟隨之類仍可運作。穿透開啟時無法點到本視窗，故一律提供
+// 系統托盤選單與全域快捷鍵（Ctrl/Cmd+Alt+L）切回，避免「點不回來」。
+function applyClickThrough(on) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setIgnoreMouseEvents(!!on, { forward: true });
+  }
+}
+
+function applyAutoLaunch(on) {
+  try {
+    app.setLoginItemSettings({ openAtLogin: !!on });
+  } catch (_e) {
+    /* 某些平台/打包方式可能不支援，忽略 */
+  }
+}
+
+// 統一入口：套用 + 持久化 + 更新托盤勾選狀態
+function setDesktop(partial) {
+  const cur = (loadConfig().desktop) || {};
+  const p = partial || {};
+  const next = Object.assign({}, cur, p);
+  if ('alwaysOnTop' in p) applyAlwaysOnTop(next.alwaysOnTop);
+  if ('clickThrough' in p) applyClickThrough(next.clickThrough);
+  if ('autoLaunch' in p) applyAutoLaunch(next.autoLaunch);
+  saveConfig({ desktop: next });
+  updateTrayMenu();
+  return next;
+}
+
+function showWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function toggleWindowVisible() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isVisible() && !mainWindow.isMinimized()) mainWindow.hide();
+  else showWindow();
+}
+
+function toggleClickThrough() {
+  const cur = (loadConfig().desktop) || {};
+  setDesktop({ clickThrough: !cur.clickThrough });
+}
+
+function buildTrayMenu() {
+  const d = (loadConfig().desktop) || {};
+  return Menu.buildFromTemplate([
+    { label: '顯示 / 隱藏', click: toggleWindowVisible },
+    { type: 'separator' },
+    { label: '點擊穿透（滑鼠穿過角色）', type: 'checkbox', checked: !!d.clickThrough, click: (mi) => setDesktop({ clickThrough: mi.checked }) },
+    { label: '視窗置頂', type: 'checkbox', checked: d.alwaysOnTop !== false, click: (mi) => setDesktop({ alwaysOnTop: mi.checked }) },
+    { label: '開機時自動啟動', type: 'checkbox', checked: !!d.autoLaunch, click: (mi) => setDesktop({ autoLaunch: mi.checked }) },
+    { type: 'separator' },
+    { label: '開啟設定…', click: () => { showWindow(); if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('ui:open-settings'); } },
+    { label: '結束', click: () => { app.quit(); } }
+  ]);
+}
+
+function updateTrayMenu() {
+  if (tray && !tray.isDestroyed()) tray.setContextMenu(buildTrayMenu());
+}
+
+function createTray() {
+  try {
+    let img = nativeImage.createFromPath(ICON_PATH);
+    if (img.isEmpty()) img = nativeImage.createEmpty();
+    tray = new Tray(img);
+    tray.setToolTip('桌面助手');
+    tray.setContextMenu(buildTrayMenu());
+    // 左鍵點托盤圖示：切換顯示/隱藏
+    tray.on('click', toggleWindowVisible);
+  } catch (e) {
+    console.error('[tray] 建立失敗', e);
+  }
+}
+
 app.whenReady().then(async () => {
   await startServer();
   createWindow();
+
+  // 套用開機自啟（依設定）；建立托盤；註冊全域快捷鍵切換點擊穿透
+  const d = (loadConfig().desktop) || {};
+  applyAutoLaunch(!!d.autoLaunch);
+  createTray();
+  try {
+    globalShortcut.register('CommandOrControl+Alt+L', toggleClickThrough);
+  } catch (_e) {}
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -116,9 +220,18 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+app.on('will-quit', () => {
+  try { globalShortcut.unregisterAll(); } catch (_e) {}
+  if (tray && !tray.isDestroyed()) try { tray.destroy(); } catch (_e) {}
+});
+
 // ---- IPC ----
 ipcMain.handle('config:get', () => loadConfig());
 ipcMain.handle('config:save', (_e, cfg) => saveConfig(cfg));
+
+// 桌面/桌寵設定：讀取目前值 / 套用並持久化
+ipcMain.handle('desktop:get', () => (loadConfig().desktop) || {});
+ipcMain.handle('desktop:set', (_e, partial) => setDesktop(partial || {}));
 
 ipcMain.handle('chat:send', async (_e, payload) => {
   const cfg = loadConfig();
