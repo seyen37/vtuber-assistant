@@ -120,7 +120,7 @@ function applyAlwaysOnTop(on) {
 
 // 點擊穿透：滑鼠點擊穿過角色落到後面的程式。forward:true 仍轉發滑鼠移動，
 // 讓 Live2D 視線跟隨之類仍可運作。穿透開啟時無法點到本視窗，故一律提供
-// 系統托盤選單與全域快捷鍵（Ctrl/Cmd+Alt+L）切回，避免「點不回來」。
+// 系統托盤選單與全域快捷鍵（預設 Ctrl/Cmd+Alt+Shift+P）切回，避免「點不回來」。
 function applyClickThrough(on) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setIgnoreMouseEvents(!!on, { forward: true });
@@ -166,6 +166,24 @@ function toggleClickThrough() {
   setDesktop({ clickThrough: !cur.clickThrough });
 }
 
+// 切換點擊穿透的全域快捷鍵：依序嘗試候選組合，註冊成功的第一個才生效。
+// 避免與 Windows/輸入法/顯卡既有快捷鍵衝突（例如 Ctrl+Alt+L 常被即時字幕/Intel 佔用）。
+// 註：托盤選單的「點擊穿透」勾選為主要切回路徑，快捷鍵僅為備援。
+const TOGGLE_HOTKEYS = [
+  'CommandOrControl+Alt+Shift+P',
+  'CommandOrControl+Alt+Shift+O',
+  'CommandOrControl+Shift+F9'
+];
+let activeToggleHotkey = null;
+function registerToggleHotkey() {
+  for (const acc of TOGGLE_HOTKEYS) {
+    try {
+      if (globalShortcut.register(acc, toggleClickThrough)) { activeToggleHotkey = acc; break; }
+    } catch (_e) {}
+  }
+  console.log('[hotkey] 點擊穿透切換鍵 =', activeToggleHotkey || '(無法註冊，請用托盤選單)');
+}
+
 function buildTrayMenu() {
   const d = (loadConfig().desktop) || {};
   return Menu.buildFromTemplate([
@@ -206,9 +224,7 @@ app.whenReady().then(async () => {
   const d = (loadConfig().desktop) || {};
   applyAutoLaunch(!!d.autoLaunch);
   createTray();
-  try {
-    globalShortcut.register('CommandOrControl+Alt+L', toggleClickThrough);
-  } catch (_e) {}
+  registerToggleHotkey();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
