@@ -149,6 +149,24 @@ function skipTest(name, why) { console.log('  SKIP', name, '(' + why + ')'); ski
   });
 
 
+  await test('parseEmotion 抽取情緒並去標籤（含全形冒號）', () => {
+    assert.deepStrictEqual(textutil.parseEmotion('[情緒:開心] 你好呀！'), { emotion: '開心', text: '你好呀！' });
+    assert.deepStrictEqual(textutil.parseEmotion('[情緒：生氣]哼！'), { emotion: '生氣', text: '哼！' });
+  });
+  await test('parseEmotion 無標籤回 null、文字原樣', () => {
+    const r = textutil.parseEmotion('沒有標籤的句子');
+    assert.strictEqual(r.emotion, null);
+    assert.strictEqual(r.text, '沒有標籤的句子');
+  });
+  await test('parseEmotion 未知情緒值不誤判，但仍去標籤', () => {
+    const r = textutil.parseEmotion('[情緒:亂寫] 內容');
+    assert.strictEqual(r.emotion, null);
+    assert.strictEqual(r.text, '內容');
+  });
+  await test('cleanForSpeech 會去掉情緒標籤（不唸出來）', () => {
+    assert.strictEqual(textutil.cleanForSpeech('[情緒:難過] 我有點難過 [1]'), '我有點難過');
+  });
+
   console.log('\n[asr]');
   await test('transcribe 打 /audio/transcriptions + 帶 model/Authorization', async () => {
     let captured;

@@ -196,9 +196,16 @@ async function send() {
     const res = await window.api.sendMessage({ history });
     typing.remove();
     if (res && res.ok) {
-      addMsg('ai', res.content, res.sources);
-      history.push({ role: 'assistant', content: res.content });
-      speak(res.content); // 唸出回覆 + 帶動嘴型
+      // 解析情緒標籤 [情緒:X] → 驅動表情，並從顯示/歷史/唸稿中去除標籤
+      const parsed = window.TextUtil
+        ? window.TextUtil.parseEmotion(res.content)
+        : { emotion: null, text: res.content };
+      if (parsed.emotion && window.L2D.setEmotion) {
+        try { window.L2D.setEmotion(parsed.emotion); } catch (_e) {}
+      }
+      addMsg('ai', parsed.text, res.sources);
+      history.push({ role: 'assistant', content: parsed.text });
+      speak(parsed.text); // 唸出回覆 + 帶動嘴型
     } else {
       stopSpeaking();
       addMsg('ai', '出錯了：' + ((res && res.error) || '未知錯誤'));

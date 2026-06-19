@@ -12,6 +12,12 @@ const kb = require('./kb');
 const ROOT = path.join(__dirname, '..', '..');
 const ICON_PATH = path.join(ROOT, 'assets', 'icon.png');
 
+// 情緒表現：要求 LLM 在每則回覆最前面標一個情緒標籤，前端解析後驅動表情（並於顯示/唸稿時去除）。
+const EMOTION_INSTR =
+  '在你每則回覆的最前面，用一個情緒標籤標註當下情緒，格式固定為 [情緒:X]，' +
+  'X 只能是：開心、難過、生氣、驚訝、害羞、一般。例如「[情緒:開心] 好的，我來幫你！」。' +
+  '整則回覆只放一個標籤、務必放在最前面，其餘照常用繁體中文回答，不要解釋這個標籤。';
+
 let mainWindow = null;
 let tray = null;
 let server = null;
@@ -277,6 +283,9 @@ ipcMain.handle('chat:send', async (_e, payload) => {
       const block = memory.formatMemoryBlock(memory.recall(cfg, lastUser.content));
       if (block) pre.push({ role: 'system', content: block });
     } catch (_e) {}
+  }
+  if (cfg.expression && cfg.expression.enabled !== false) {
+    pre.push({ role: 'system', content: EMOTION_INSTR });
   }
   const augmented = pre.length ? [...pre, ...history] : history;
   try {

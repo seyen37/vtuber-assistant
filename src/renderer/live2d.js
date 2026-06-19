@@ -10,6 +10,9 @@ window.L2D = (function () {
   let model = null;
   let speaking = false;
   let onTapCb = null;
+  let emoParams = null;   // 無表情檔時的標準參數覆寫
+  let emoUntil = 0;       // 覆寫到期時間（ms）
+  const EMO_HOLD_MS = 6000;
   const MOUTH = 'ParamMouthOpenY';
   const DEFAULT_MODEL = '/assets/live2d/hiyori/Hiyori.model3.json';
 
@@ -38,6 +41,7 @@ window.L2D = (function () {
 
     // 嘴型更新放在最低優先度，盡量在模型更新後覆寫
     app.ticker.add(tickMouth, null, PIXI.UPDATE_PRIORITY.LOW);
+    app.ticker.add(tickEmotion, null, PIXI.UPDATE_PRIORITY.LOW);
     window.addEventListener('resize', fit);
     return true;
   }
@@ -119,6 +123,48 @@ window.L2D = (function () {
     try { if (model) model.motion(group); } catch (_e) {}
   }
 
+  // 情緒：六種 → 表情檔名（有表情檔時用）／標準參數配方（無表情檔時用）
+  const EMO_EXP = { '開心': 'Smile', '難過': 'Sad', '生氣': 'Angry', '驚訝': 'Surprised', '害羞': 'Blushing', '一般': 'Normal' };
+  const EMO_PARAMS = {
+    '開心': { ParamMouthForm: 1, ParamEyeLSmile: 1, ParamEyeRSmile: 1 },
+    '難過': { ParamMouthForm: -1, ParamBrowLY: -0.6, ParamBrowRY: -0.6, ParamBrowLForm: -0.5, ParamBrowRForm: -0.5 },
+    '生氣': { ParamBrowLForm: -1, ParamBrowRForm: -1, ParamBrowLY: -0.5, ParamBrowRY: -0.5, ParamMouthForm: -0.4 },
+    '驚訝': { ParamBrowLY: 1, ParamBrowRY: 1, ParamEyeLOpen: 1, ParamEyeROpen: 1, ParamMouthForm: 0 },
+    '害羞': { ParamCheek: 1, ParamEyeLSmile: 0.4, ParamEyeRSmile: 0.4, ParamMouthForm: 0.4 },
+    '一般': {}
+  };
+
+  function hasExpressions() {
+    try {
+      const e = model.internalModel.settings.expressions;
+      return Array.isArray(e) && e.length > 0;
+    } catch (_e) { return false; }
+  }
+
+  // 設定情緒：有表情檔→用美術手調表情（持久漂亮）；無→設標準參數撐幾秒
+  function setEmotion(emo) {
+    if (!model) return;
+    if (hasExpressions()) {
+      emoParams = null; emoUntil = 0;
+      const name = EMO_EXP[emo];
+      try { if (name) model.expression(name); } catch (_e) {}
+      return;
+    }
+    const recipe = EMO_PARAMS[emo];
+    if (!recipe || Object.keys(recipe).length === 0) { emoParams = null; emoUntil = 0; return; }
+    emoParams = recipe;
+    emoUntil = performance.now() + EMO_HOLD_MS;
+  }
+
+  function tickEmotion() {
+    if (!model || !model.internalModel || !emoParams) return;
+    if (performance.now() > emoUntil) { emoParams = null; return; }
+    const core = model.internalModel.coreModel;
+    for (const id in emoParams) {
+      try { core.setParameterValueById(id, emoParams[id]); } catch (_e) {}
+    }
+  }
+
   function tickMouth() {
     if (!model || !model.internalModel) return;
     let v = 0;
@@ -135,5 +181,5 @@ window.L2D = (function () {
     if (on) playMotion('TapBody');
   }
 
-  return { init, loadModel, setSpeaking, playMotion, setOnTap: (fn) => { onTapCb = fn; } };
+  return { init, loadModel, setSpeaking, playMotion, setOnTap: (fn) => { onTapCb = fn; }, setEmotion };
 })();
