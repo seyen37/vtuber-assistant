@@ -48,6 +48,8 @@
 | R34 | vincentchiou/office-health-clock | Python 桌面健康時鐘 widget(MIT)：久坐/喝水/用藥提醒+天氣+系統監控 | 🟡 部分採用（同為桌面 widget，借點子） | ✅原子寫入(tmp+rename)直接套 config/memory；🟡健康提醒(角色語音,搭桌寵)、記住視窗位置；🔭系統監控(需原生helper,feature creep)、天氣 |
 | R35 | craig7351/zombie-survivors（使用者自製，Claude+CC0 3D） | 瀏覽器 3D 殭屍生存遊戲，用 Quaternius CC0 模型、AI 專注玩法邏輯 | ⛔ 產品不適用 / ✅ 方法論採用 | 不同產品(瀏覽器3D遊戲 vs 桌面2D Live2D助手)。但心法「不讓AI硬畫美術、用免費asset包、AI專注邏輯」正是我們策略；Quaternius CC0 留作未來 VRM/3D 素材源 |
 | R36 | Studio0808 獨立工具（影音下載器 + AI 字幕工廠） | 免安裝 Windows 工具，本地 Whisper 聽寫(自訂詞庫/VAD/無卡降CPU) | 🟡 部分採用（借概念，無 repo 無碼） | ✅Whisper prompt 自訂詞庫→加進我們 asr.js 提升辨識(低成本)；🔭VAD 噪音過濾(呼應hands-free)。⛔下載器/ETA/本地GPU降級無關 |
+| R37 | debpalash/OmniVoice-Studio | Tauri+FastAPI 本地語音工作室：3秒聲音克隆(646語言)/配音/分離/多引擎TTS(FSL授權) | 🟡 部分採用（借架構，重型不整合） | ✅可插拔 TTS 後端註冊表(做 Edge-TTS 升級時採用，如 llm.js 抽象)；🔭角色專屬克隆聲線(重型,Edge-TTS 仍近期首選)。⛔配音/分離/浮水印超範圍；FSL 非標準開源禁競品 |
+| R38 | AI 即時翻譯會議軟體（FB 貼文，無 repo） | STT→TTS pipeline 延遲優化：~400ms 字幕先出→校正→~800ms 發聲，句界分塊 | 🟡 部分採用（借 pipeline/UX 概念） | ✅文字先出串流+句界分塊 TTS(縮短 time-to-first-audio,適用未來對嘴)；✅~400ms 延遲預算心智模型。⛔翻譯/會議/交友功能超範圍 |
 
 ---
 
@@ -399,6 +401,29 @@
   - ⛔ 影音下載器、即時進度/ETA UI（ASR 快不需要）、下載站本身。
 - **決定**：🟡 部分採用（借「Whisper prompt 詞庫」直接套；VAD 觀望）。
 - **落實 / 後續**：可順手在 `asr.js` + 設定面板加「轉寫詞庫(prompt)」欄位（小修）；VAD 併入未來 hands-free 評估。
+### R37 — debpalash/OmniVoice-Studio · https://github.com/debpalash/OmniVoice-Studio
+- **類型**：Tauri（Rust+React）桌面 + FastAPI 後端的**本地 AI 語音工作室**（ElevenLabs 開源替代）。零樣本聲音克隆（3 秒、646 語言）、語音設計、影片配音（轉錄→翻譯→配音→MP4）、WhisperX ASR、Demucs 人聲分離、Pyannote 分離、MCP server、多引擎 TTS（OmniVoice/CosyVoice/MLX-Audio/VoxCPM2/MOSS-TTS-Nano/KittenTTS）、AudioSeal 浮水印。需 ML 模型、10GB+、GPU 較佳（CPU 可跑較慢）。
+- **授權**：**FSL-1.1-ALv2**（source-available；個人/教育/研究/內部/非商用免費；兩年後轉 Apache-2.0；做競品需商業授權）。非標準開源。
+- **與本專案關聯**：重型語音「生產工具」，與輕量桌面助手不同類、不整包採用；但 TTS 架構與克隆概念有參考價值。
+- **分析（採用 / 不採用）**：
+  - ✅ **可插拔 TTS 後端註冊表**（subclass `TTSBackend` ~50 行加引擎）：正是我們 TTS 該做的抽象——像 `llm.js` 一樣把 browser TTS / Edge-TTS / 雲端 OpenAI TTS / 本地引擎包成可切換後端。做 Edge-TTS 對嘴升級時採此結構。呼應 AIRI unspeech（R17）。
+  - 🔭 **聲音克隆 → 角色專屬聲線**（3 秒克隆）：可給 VTube 角色自訂聲音，呼應角色綁定人設/聲線（R22）。屬重型本地 ML、CPU 合成慢（同 R32 痛點）→ 互動即時仍以 **Edge-TTS 為近期首選**。
+  - 印證：多引擎版圖（CosyVoice/Kokoro/MOSS/KittenTTS，同 R19/R32）；KittenTTS/MOSS 宣稱 CPU 即時但語言有限。
+  - ⛔ 影片配音、說話人分離、人聲分離、浮水印、MCP 工作室功能——超出桌面助手範圍。
+  - **⚠️ 授權**：FSL 禁競品；僅借概念、不抄碼入競品（我們是助手非語音工作室，風險低）。
+- **決定**：🟡 部分採用（借「可插拔 TTS 後端」架構；克隆聲線觀望；重型功能不採；注意 FSL）。
+- **落實 / 後續**：TTS 升級時採可插拔後端設計（browser/Edge-TTS/雲端/本地）；克隆聲線列未來「角色專屬聲音」選項。
+### R38 — AI 即時翻譯會議軟體（FB 貼文，無 GitHub repo）
+- **類型**：AI 即時翻譯會議軟體（中英、上架中）。重點是 **STT→TTS pipeline 延遲優化**。無原始碼 repo（FB 影片）→ 借概念。
+- **核心洞見**：人類感知 **<400ms** 才不突兀，但 STT→TTS 最快 ~800ms → 用**串流/分塊**：① ~400ms 先逐字顯示字幕+翻譯 ② AI 等句完成再依上下文校正 ③ 句完成後 ~800ms 才發聲（此時講者已下一句）→ 無中斷感。雲端 Gemini 品質好延遲高；本地低延遲+免費+可 chunk。
+- **與本專案關聯**：翻譯會議產品，但其延遲/串流心法對我們語音/回覆體驗有用。
+- **分析（採用 / 不採用）**：
+  - ✅ **「文字先出、聲音後到」+ 句界分塊**：我們現況是「agent 跑完→回傳完整文字→才唸」。可改成 (a) **LLM 回覆串流逐字顯示**（先讓使用者看到字）+ (b) **TTS 以句子為單位邊完成邊唸**（第一句完成先合成播放、不等整段）→ 縮短 time-to-first-audio，直接適用未來 Edge-TTS 對嘴。
+  - ✅ **延遲預算心智模型（~400ms 門檻）**：語音互動體驗基準。
+  - 🔭 雲端(Gemini 品質) vs 本地(低延遲/免費) 取捨：印證我們「OpenAI 相容 + 本地」雙線。
+  - ⛔ 翻譯/會議/交友功能超出範圍；「AI 陪伴」與我們助手性質沾邊但屬他們延伸方向、非可搬。
+- **決定**：🟡 部分採用（借「串流文字先出 + 句界分塊 TTS + 延遲預算」概念）。
+- **落實 / 後續**：做 Edge-TTS 對嘴時，採「LLM 串流顯示 + 句界分塊合成播放」降低感知延遲；agent 之後可評估串流回傳（含 tool-calling 較複雜，列 backlog）。
 ## 附：業界方案參考（由方案比對得出，詳見 `docs/comparison-voice-ai-solutions.md`）
 - WebLLM（mlc-ai）、OpenAI Realtime（gpt-realtime）、Amica（VRM 3D）、Open-LLM-VTuber、awesome-ai-vtubers、faster-whisper / sherpa-onnx / Piper（離線語音）。
 

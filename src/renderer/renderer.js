@@ -467,11 +467,32 @@ function bindUI() {
   }
 }
 
+// ---------- 點擊角色互動（台詞）----------
+const TAP_LINES = [
+  '嘿，別戳我啦～',
+  '在的，有什麼需要嗎？',
+  '癢癢的耶 ( >﹏< )',
+  '需要我幫你查點什麼嗎？',
+  '再戳我就要開始工作給你看囉！',
+  '嗯？我在聽～'
+];
+let lastTapAt = 0;
+function onCharacterTap() {
+  const now = Date.now();
+  if (now - lastTapAt < 1200) return;   // 防連點洗版
+  lastTapAt = now;
+  const line = TAP_LINES[Math.floor(Math.random() * TAP_LINES.length)];
+  addMsg('ai', line);                   // 只顯示，不 push 進 history（不汙染送 LLM 的對話）
+  speak(line);                          // 尊重語音開關、會帶動嘴型
+}
+
 async function boot() {
   bindUI();
   const cfg = await loadSettings();
   const ok = await window.L2D.init($('live2d'), cfg && cfg.character);
   if (!ok) showStatus('Live2D 載入失敗');
+  // 點擊角色 → 隨機台詞（只顯示、不進 history；尊重語音開關）
+  if (window.L2D.setOnTap) window.L2D.setOnTap(onCharacterTap);
 }
 
 window.addEventListener('DOMContentLoaded', boot);
