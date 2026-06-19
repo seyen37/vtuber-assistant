@@ -25,5 +25,8 @@
     "win": {
       "target": "portable"
     }
+  },
+  "dependencies": {
+    "msedge-tts": "^2.0.6"
   }
 }

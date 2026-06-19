@@ -190,6 +190,13 @@ function skipTest(name, why) { console.log('  SKIP', name, '(' + why + ')'); ski
   });
 
 
+  console.log('\n[tts]');
+  await test('tts 模組匯出 synthesize / DEFAULT_VOICE', () => {
+    const tts = require('../src/main/tts');
+    assert.strictEqual(typeof tts.synthesize, 'function');
+    assert.ok(typeof tts.DEFAULT_VOICE === 'string' && tts.DEFAULT_VOICE.length > 0);
+  });
+
   console.log('\n[memory]');
   await test('tokenize 切拉丁詞 + 中文逐字', () => {
     const t = memory.tokenize('台北天氣 OpenAI gpt4');

@@ -6,7 +6,9 @@ let statusTimer = null;
 let mouthTimer = null;
 
 // 語音輸出（TTS）狀態
-let speechCfg = { enabled: true, voice: '', rate: 1.0, pitch: 1.0 };
+let speechCfg = { enabled: true, provider: 'edge', voice: '', edgeVoice: 'zh-TW-HsiaoChenNeural', rate: 1.0, pitch: 1.0 };
+// Edge-TTS（Web Audio 音量對嘴）狀態
+let audioCtx = null, edgeSource = null, edgeRAF = 0;
 let voices = [];
 
 // 語音輸入（ASR）狀態
@@ -92,11 +94,18 @@ function mouthByTimer(text) {
 
 function speak(text) {
   const clean = window.TextUtil ? window.TextUtil.cleanForSpeech(text) : text;
-  const synth = window.speechSynthesis;
-  if (!speechCfg.enabled || !synth || !clean) {
-    mouthByTimer(clean || text);
+  if (!speechCfg.enabled || !clean) { mouthByTimer(clean || text); return; }
+  if (speechCfg.provider === 'edge') {
+    speakEdge(clean).then((ok) => { if (!ok) speakBrowser(clean); });
     return;
   }
+  speakBrowser(clean);
+}
+
+// 瀏覽器內建語音（離線後備）：假正弦嘴型
+function speakBrowser(clean) {
+  const synth = window.speechSynthesis;
+  if (!synth || !clean) { mouthByTimer(clean); return; }
   try { synth.cancel(); } catch (_e) {}
   const u = new SpeechSynthesisUtterance(clean);
   const v = pickVoice();
@@ -109,9 +118,63 @@ function speak(text) {
   synth.speak(u);
 }
 
+function ensureAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (_e) {} }
+  return audioCtx;
+}
+
+// Edge-TTS：取 MP3 → Web Audio 播放 → AnalyserNode 取音量(RMS) 即時驅動嘴型。成功回 true。
+async function speakEdge(clean) {
+  try {
+    const res = await window.api.synthesizeTTS({
+      text: clean, voice: speechCfg.edgeVoice, rate: speechCfg.rate, pitch: speechCfg.pitch
+    });
+    if (!res || !res.ok || !res.audioBase64) {
+      if (res && res.error) console.warn('[edge-tts]', res.error);
+      return false;
+    }
+    const ctx = ensureAudioCtx();
+    const bin = atob(res.audioBase64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const buf = await ctx.decodeAudioData(bytes.buffer);
+    stopEdgeAudio();
+    window.L2D.setSpeaking(false); // 結束「思考中」假嘴型，改由音量驅動
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const analyser = ctx.createAnalyser(); analyser.fftSize = 256;
+    src.connect(analyser); analyser.connect(ctx.destination);
+    const data = new Uint8Array(analyser.fftSize);
+    edgeSource = src;
+    const loop = () => {
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) { const x = (data[i] - 128) / 128; sum += x * x; }
+      const rms = Math.sqrt(sum / data.length);
+      window.L2D.setMouthOpen(Math.min(1, rms * 3.2)); // gain 放大讓嘴型明顯
+      edgeRAF = requestAnimationFrame(loop);
+    };
+    src.onended = () => stopEdgeAudio();
+    src.start();
+    edgeRAF = requestAnimationFrame(loop);
+    return true;
+  } catch (e) {
+    console.error('[edge-tts]', e);
+    stopEdgeAudio();
+    return false;
+  }
+}
+
+function stopEdgeAudio() {
+  if (edgeRAF) { cancelAnimationFrame(edgeRAF); edgeRAF = 0; }
+  if (edgeSource) { try { edgeSource.onended = null; edgeSource.stop(); } catch (_e) {} edgeSource = null; }
+  window.L2D.setMouthOpen(null);
+}
+
 function stopSpeaking() {
   try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (_e) {}
   clearTimeout(mouthTimer);
+  stopEdgeAudio();
   window.L2D.setSpeaking(false);
 }
 
@@ -325,8 +388,11 @@ async function loadSettings() {
   $('cfg-system').value = cfg.systemPrompt;
 
   // 語音輸出
-  speechCfg = Object.assign({ enabled: true, voice: '', rate: 1.0, pitch: 1.0 }, cfg.speech || {});
+  speechCfg = Object.assign({ enabled: true, provider: 'edge', voice: '', edgeVoice: 'zh-TW-HsiaoChenNeural', rate: 1.0, pitch: 1.0 }, cfg.speech || {});
   $('cfg-speech').checked = !!speechCfg.enabled;
+  $('cfg-speech-provider').value = speechCfg.provider || 'edge';
+  $('cfg-edge-voice').value = speechCfg.edgeVoice || 'zh-TW-HsiaoChenNeural';
+  toggleEdgeVoice();
   $('cfg-rate').value = speechCfg.rate;
   $('cfg-rate-val').textContent = Number(speechCfg.rate).toFixed(1) + 'x';
   loadVoices();
@@ -372,6 +438,8 @@ async function loadSettings() {
 async function saveSettings() {
   speechCfg.enabled = $('cfg-speech').checked;
   speechCfg.voice = $('cfg-voice').value;
+  speechCfg.provider = $('cfg-speech-provider').value;
+  speechCfg.edgeVoice = $('cfg-edge-voice').value.trim() || 'zh-TW-HsiaoChenNeural';
   speechCfg.rate = parseFloat($('cfg-rate').value) || 1.0;
   asrEnabled = $('cfg-asr').checked;
 
@@ -389,7 +457,7 @@ async function saveSettings() {
       provider: $('cfg-search-provider').value,
       tavilyApiKey: $('cfg-tavily-key').value.trim()
     },
-    speech: { enabled: speechCfg.enabled, voice: speechCfg.voice, rate: speechCfg.rate, pitch: speechCfg.pitch },
+    speech: { enabled: speechCfg.enabled, provider: speechCfg.provider, voice: speechCfg.voice, edgeVoice: speechCfg.edgeVoice, rate: speechCfg.rate, pitch: speechCfg.pitch },
     asr: {
       enabled: asrEnabled,
       model: $('cfg-asr-model').value.trim() || 'whisper-1',
@@ -435,6 +503,7 @@ function bindUI() {
   $('btn-cancel').addEventListener('click', () => $('settings').classList.add('hidden'));
   $('btn-save').addEventListener('click', saveSettings);
   $('cfg-provider').addEventListener('change', toggleProviderGroups);
+  $('cfg-speech-provider').addEventListener('change', toggleEdgeVoice);
   $('cfg-search-provider').addEventListener('change', toggleTavily);
   $('btn-ollama-refresh').addEventListener('click', refreshOllamaModels);
   $('btn-detect-chromeai').addEventListener('click', detectChromeAI);
@@ -491,6 +560,12 @@ function onCharacterTap() {
   const line = TAP_LINES[Math.floor(Math.random() * TAP_LINES.length)];
   addMsg('ai', line);                   // 只顯示，不 push 進 history（不汙染送 LLM 的對話）
   speak(line);                          // 尊重語音開關、會帶動嘴型
+}
+
+function toggleEdgeVoice() {
+  const isEdge = $('cfg-speech-provider').value === 'edge';
+  const el = $('grp-edge-voice');
+  if (el) el.style.display = isEdge ? '' : 'none';
 }
 
 async function boot() {

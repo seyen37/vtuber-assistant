@@ -5,6 +5,7 @@ const fs = require('fs');
 const { loadConfig, saveConfig } = require('./config');
 const { runAgent } = require('./agent');
 const { transcribe } = require('./asr');
+const tts = require('./tts');
 const memory = require('./memory');
 const kb = require('./kb');
 
@@ -352,6 +353,16 @@ ipcMain.handle('asr:transcribe', async (_e, payload) => {
   try {
     const r = await transcribe(cfg, payload || {});
     return { ok: true, text: r.text };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
+// Edge-TTS：合成文字為 MP3（base64 回傳），renderer 用 Web Audio 播放並做音量對嘴。
+ipcMain.handle('tts:synthesize', async (_e, payload) => {
+  try {
+    const buf = await tts.synthesize((payload && payload.text) || '', payload || {});
+    return { ok: true, audioBase64: buf.toString('base64'), mime: 'audio/mpeg' };
   } catch (err) {
     return { ok: false, error: String((err && err.message) || err) };
   }

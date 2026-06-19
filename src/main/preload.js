@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('api', {
   listCharacters: () => ipcRenderer.invoke('live2d:list'),
   listOllamaModels: (baseUrl) => ipcRenderer.invoke('ollama:tags', baseUrl),
   transcribe: (payload) => ipcRenderer.invoke('asr:transcribe', payload),
+  synthesizeTTS: (payload) => ipcRenderer.invoke('tts:synthesize', payload),
   clearMemory: () => ipcRenderer.invoke('memory:clear'),
   memoryStats: () => ipcRenderer.invoke('memory:stats'),
   kbStats: () => ipcRenderer.invoke('kb:stats'),

@@ -9,6 +9,7 @@ window.L2D = (function () {
   let app = null;
   let model = null;
   let speaking = false;
+  let extMouth = null;   // 外部音量驅動的嘴張幅度(0..1)；非 null 時優先
   let onTapCb = null;
   let emoParams = null;   // 無表情檔時的標準參數覆寫
   let emoUntil = 0;       // 覆寫到期時間（ms）
@@ -168,12 +169,19 @@ window.L2D = (function () {
   function tickMouth() {
     if (!model || !model.internalModel) return;
     let v = 0;
-    if (speaking) {
-      v = Math.min(1, Math.abs(Math.sin(performance.now() / 90)) * (0.4 + Math.random() * 0.5));
+    if (extMouth != null) {
+      v = extMouth;                 // Edge-TTS 真實音量對嘴
+    } else if (speaking) {
+      v = Math.min(1, Math.abs(Math.sin(performance.now() / 90)) * (0.4 + Math.random() * 0.5));  // 後備：假正弦
     }
     try {
       model.internalModel.coreModel.setParameterValueById(MOUTH, v);
     } catch (_e) {}
+  }
+
+  // 外部（Edge-TTS 音量）驅動嘴型；傳 null 結束外部控制
+  function setMouthOpen(v) {
+    extMouth = (v == null) ? null : Math.max(0, Math.min(1, v));
   }
 
   function setSpeaking(on) {
@@ -181,5 +189,5 @@ window.L2D = (function () {
     if (on) playMotion('TapBody');
   }
 
-  return { init, loadModel, setSpeaking, playMotion, setOnTap: (fn) => { onTapCb = fn; }, setEmotion };
+  return { init, loadModel, setSpeaking, playMotion, setOnTap: (fn) => { onTapCb = fn; }, setEmotion, setMouthOpen };
 })();
