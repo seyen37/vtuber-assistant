@@ -190,6 +190,23 @@ function skipTest(name, why) { console.log('  SKIP', name, '(' + why + ')'); ski
   });
 
 
+  await test('splitSentences 依句末標點切句、空回空', () => {
+    assert.deepStrictEqual(textutil.splitSentences(''), []);
+    // 預設會合併很短相鄰句；用小 mergeMax 強制分割來驗證切句
+    assert.deepStrictEqual(textutil.splitSentences('你好。今天好嗎？', 3), ['你好。', '今天好嗎？']);
+    assert.deepStrictEqual(textutil.splitSentences('你好。今天好嗎？'), ['你好。今天好嗎？']);
+  });
+  await test('splitSentences 併很短相鄰句、長單句不硬切', () => {
+    assert.deepStrictEqual(textutil.splitSentences('好。對。'), ['好。對。']);
+    const long = '這是一個沒有任何中間標點但相當長的句子最後才有句號結尾。';
+    assert.deepStrictEqual(textutil.splitSentences(long), [long]);
+  });
+  await test('splitSentences 超長無標點才硬切(hardMax)', () => {
+    const r = textutil.splitSentences('A'.repeat(180));
+    assert.strictEqual(r.length, 3);
+    assert.ok(r.every((x) => x.length <= 80));
+  });
+
   console.log('\n[tts]');
   await test('tts 模組匯出 synthesize / DEFAULT_VOICE', () => {
     const tts = require('../src/main/tts');

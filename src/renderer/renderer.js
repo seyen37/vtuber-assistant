@@ -8,7 +8,7 @@ let mouthTimer = null;
 // 語音輸出（TTS）狀態
 let speechCfg = { enabled: true, provider: 'edge', voice: '', edgeVoice: 'zh-TW-HsiaoChenNeural', rate: 1.0, pitch: 1.0 };
 // Edge-TTS（Web Audio 音量對嘴）狀態
-let audioCtx = null, edgeSource = null, edgeRAF = 0;
+let audioCtx = null, edgeSource = null, edgeRAF = 0, edgeGen = 0;
 let voices = [];
 
 // 語音輸入（ASR）狀態
@@ -124,46 +124,73 @@ function ensureAudioCtx() {
   return audioCtx;
 }
 
-// Edge-TTS：取 MP3 → Web Audio 播放 → AnalyserNode 取音量(RMS) 即時驅動嘴型。成功回 true。
-async function speakEdge(clean) {
+// Edge-TTS 分塊串流（synth-ahead-by-1）：切句→合成第1句先播，播放時預取下一句，依序播放並做音量對嘴。
+// 合成單句 → AudioBuffer；回 null=已取消、false=失敗(可回退)
+async function synthBuffer(text, gen) {
+  const res = await window.api.synthesizeTTS({
+    text, voice: speechCfg.edgeVoice, rate: speechCfg.rate, pitch: speechCfg.pitch
+  });
+  if (gen !== edgeGen) return null; // 已被新的語音取代
+  if (!res || !res.ok || !res.audioBase64) {
+    if (res && res.error) console.warn('[edge-tts]', res.error);
+    return false;
+  }
   try {
-    const res = await window.api.synthesizeTTS({
-      text: clean, voice: speechCfg.edgeVoice, rate: speechCfg.rate, pitch: speechCfg.pitch
-    });
-    if (!res || !res.ok || !res.audioBase64) {
-      if (res && res.error) console.warn('[edge-tts]', res.error);
-      return false;
-    }
     const ctx = ensureAudioCtx();
     const bin = atob(res.audioBase64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const buf = await ctx.decodeAudioData(bytes.buffer);
-    stopEdgeAudio();
-    window.L2D.setSpeaking(false); // 結束「思考中」假嘴型，改由音量驅動
+    return await ctx.decodeAudioData(bytes.buffer);
+  } catch (e) { console.warn('[edge-tts decode]', e); return false; }
+}
+
+// 播放一個 AudioBuffer（含音量對嘴），播完 resolve
+function playBuffer(buf, gen) {
+  return new Promise((resolve) => {
+    if (gen !== edgeGen || !buf) { resolve(); return; }
+    const ctx = ensureAudioCtx();
     const src = ctx.createBufferSource(); src.buffer = buf;
     const analyser = ctx.createAnalyser(); analyser.fftSize = 256;
     src.connect(analyser); analyser.connect(ctx.destination);
     const data = new Uint8Array(analyser.fftSize);
     edgeSource = src;
     const loop = () => {
+      if (gen !== edgeGen) return;
       analyser.getByteTimeDomainData(data);
       let sum = 0;
       for (let i = 0; i < data.length; i++) { const x = (data[i] - 128) / 128; sum += x * x; }
-      const rms = Math.sqrt(sum / data.length);
-      window.L2D.setMouthOpen(Math.min(1, rms * 3.2)); // gain 放大讓嘴型明顯
+      window.L2D.setMouthOpen(Math.min(1, Math.sqrt(sum / data.length) * 3.2));
       edgeRAF = requestAnimationFrame(loop);
     };
-    src.onended = () => stopEdgeAudio();
-    src.start();
+    src.onended = () => {
+      if (edgeRAF) { cancelAnimationFrame(edgeRAF); edgeRAF = 0; }
+      window.L2D.setMouthOpen(null);
+      if (edgeSource === src) edgeSource = null;
+      resolve();
+    };
+    try { src.start(); } catch (_e) { resolve(); return; }
     edgeRAF = requestAnimationFrame(loop);
-    return true;
-  } catch (e) {
-    console.error('[edge-tts]', e);
-    stopEdgeAudio();
-    return false;
-  }
+  });
 }
+
+// 回傳：true=由 Edge 處理(至少一句成功或被取代)；false=Edge 不可用(交給瀏覽器後備)
+async function speakEdge(clean) {
+  const gen = ++edgeGen;       // 取消先前任何串流
+  stopEdgeAudio();
+  const sentences = window.TextUtil ? window.TextUtil.splitSentences(clean) : [clean];
+  if (!sentences.length) return false;
+  window.L2D.setSpeaking(false); // 結束「思考中」假嘴型
+  let pending = synthBuffer(sentences[0], gen);
+  let anyOk = false;
+  for (let i = 0; i < sentences.length; i++) {
+    const buf = await pending;
+    if (gen !== edgeGen) return true; // 被新語音取代
+    pending = (i + 1 < sentences.length) ? synthBuffer(sentences[i + 1], gen) : Promise.resolve(null);
+    if (buf) { anyOk = true; await playBuffer(buf, gen); if (gen !== edgeGen) return true; }
+  }
+  return anyOk; // 全部失敗 → 交給瀏覽器後備
+}
+
 
 function stopEdgeAudio() {
   if (edgeRAF) { cancelAnimationFrame(edgeRAF); edgeRAF = 0; }
@@ -174,6 +201,7 @@ function stopEdgeAudio() {
 function stopSpeaking() {
   try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (_e) {}
   clearTimeout(mouthTimer);
+  edgeGen++; // 中止進行中的分塊串流
   stopEdgeAudio();
   window.L2D.setSpeaking(false);
 }

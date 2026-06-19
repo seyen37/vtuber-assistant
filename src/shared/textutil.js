@@ -42,5 +42,32 @@
     s = s.replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
     return s;
   }
-  return { cleanForSpeech, parseEmotion, stripEmotionTags, EMOTIONS };
+  // 句界切分（給 TTS 分塊串流用）：依中英句末標點/換行切句。
+  // mergeMax：只把「很短的相鄰句」併在一起（減少合成次數、又不犧牲快開口）。
+  // hardMax：只有「超長且無句末標點的長串」才硬切（避免自然句被切斷）。
+  function splitSentences(input, mergeMax, hardMax) {
+    const mMax = mergeMax || 24;
+    const hMax = hardMax || 80;
+    const s = String(input == null ? '' : input).replace(/\r/g, '');
+    if (!s.trim()) return [];
+    const raw = s.split(/(?<=[。！？!?…；])|(?<=\n)/)
+      .map((x) => x.replace(/\n/g, ' ').trim())
+      .filter(Boolean);
+    const pieces = [];
+    for (const r of raw) {
+      if (r.length <= hMax) pieces.push(r);
+      else for (let i = 0; i < r.length; i += hMax) pieces.push(r.slice(i, i + hMax));
+    }
+    const out = [];
+    let cur = '';
+    for (const p of pieces) {
+      if (!cur) cur = p;
+      else if ((cur + p).length <= mMax) cur = cur + p;
+      else { out.push(cur); cur = p; }
+    }
+    if (cur) out.push(cur);
+    return out;
+  }
+
+  return { cleanForSpeech, parseEmotion, stripEmotionTags, splitSentences, EMOTIONS };
 });
