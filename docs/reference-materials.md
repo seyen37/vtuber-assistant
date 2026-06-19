@@ -43,6 +43,11 @@
 | R29 | JoeyBling/hexo-theme-yilia-plus | Hexo 部落格主題（Live2D 只是其 26 功能之一） | ⛔ 大致不採用 | 類別不符（部落格主題），Live2D 用舊 widget.js fork 不如 R21。僅 🔭 幾個通用網頁小特效(點擊愛心/飄雪/打字特效)可當零成本裝飾 |
 | R30 | jofizcd/Soul-of-Waifu | 成熟 Python 角色扮演桌面 app(GPL-3, Live2D/VRM, 本地+雲LLM, 即時語音) | 🟡 部分採用（借概念不抄碼） | 多為再次印證(桌面透明/barge-in/對嘴/情緒/向量記憶+自動摘要)。新概念：角色卡V2標準+世界書lorebook(關鍵字觸發情境注入)。RP/NSFW 取向多超範圍 |
 | R31 | P1kaj1uu/ChattyPlay-Agent | 大型多功能聚合 web 站(React/TS, Apache-2.0)，Live2D 僅裝飾 | ⛔ 大致不採用 | 類別不符（工具聚合入口站），Live2D 純裝飾。無可借鏡具體項目；僅 🔭 i18n 多語介面等通用 web 實作 |
+| R32 | 無GPU迷你電腦自架AI語音（陳盟升/Darks 攻略） | 純 CPU 本地 TTS 管線：MOSS-TTS-Nano(ONNX)+FastAPI 常駐+ffmpeg→OGG+Telegram 非同步 | 🟡 部分採用（借概念，模型本身不採） | ⚠️CPU 太慢(37字42秒)不適合桌面即時互動→Edge-TTS 仍首選。可借：①會回音訊的本地 TTS=離線選項 ②FastAPI 常駐服務架構 ③非同步語音回報模式(🔭) |
+| R33 | p5.js WebGL 效能優化全紀錄（使用者自製，Fable） | p5 immediate-mode 升級成引擎級：build/draw 分離+batching+texture baking+retained geometry，23→60fps | ⛔ 大致不適用 | 不同渲染棧：VTube 用 pixi+Live2D，本身已 retained/batched，無此 immediate-mode 瓶頸。僅留心智模型(🔭 未來自繪特效用 ParticleContainer) |
+| R34 | vincentchiou/office-health-clock | Python 桌面健康時鐘 widget(MIT)：久坐/喝水/用藥提醒+天氣+系統監控 | 🟡 部分採用（同為桌面 widget，借點子） | ✅原子寫入(tmp+rename)直接套 config/memory；🟡健康提醒(角色語音,搭桌寵)、記住視窗位置；🔭系統監控(需原生helper,feature creep)、天氣 |
+| R35 | craig7351/zombie-survivors（使用者自製，Claude+CC0 3D） | 瀏覽器 3D 殭屍生存遊戲，用 Quaternius CC0 模型、AI 專注玩法邏輯 | ⛔ 產品不適用 / ✅ 方法論採用 | 不同產品(瀏覽器3D遊戲 vs 桌面2D Live2D助手)。但心法「不讓AI硬畫美術、用免費asset包、AI專注邏輯」正是我們策略；Quaternius CC0 留作未來 VRM/3D 素材源 |
+| R36 | Studio0808 獨立工具（影音下載器 + AI 字幕工廠） | 免安裝 Windows 工具，本地 Whisper 聽寫(自訂詞庫/VAD/無卡降CPU) | 🟡 部分採用（借概念，無 repo 無碼） | ✅Whisper prompt 自訂詞庫→加進我們 asr.js 提升辨識(低成本)；🔭VAD 噪音過濾(呼應hands-free)。⛔下載器/ETA/本地GPU降級無關 |
 
 ---
 
@@ -340,6 +345,60 @@
   - 🔭 僅沾邊（通用 web 實作、非 Live2D 專屬、多半已有）：EventStream 串流可中斷+會話匯出、語音聊天+朗讀(reconfirm)、i18n 多語介面（未來想做 EN/JP 介面可參考）。
 - **決定**：⛔ 大致不採用（類別不符）。
 - **落實 / 後續**：無。
+### R32 — 無 GPU 迷你電腦自架 AI 語音（FB 攻略，陳盟升/Darks；附 ai小智 youtube short）
+- **類型**：教學攻略，非 repo。在數千元 N200 迷你電腦（無獨顯）純 CPU 自架 TTS：**MOSS-TTS-Nano**（基於 ONNX Runtime 的輕量 TTS，支援中英文、可自備音檔換聲線）＋ **FastAPI 常駐服務**（模型常駐記憶體、HTTP 呼叫，消除每次 20–30 秒載入）＋ **ffmpeg** 轉 WAV→OGG/Opus ＋ Telegram Bot 發送，整條龍腳本化。附帶建議從 **ai小智（xiaozhi，ESP32 語音助理）** 抽語音模組。
+- **與本專案關聯**：非 Live2D，但命中我們 TTS/對嘴 backlog——關鍵是「**會回傳音訊檔（WAV）的 TTS**」，可用 Web Audio 取音量驅動 `ParamMouthOpenY` 做真對嘴（瀏覽器 speechSynthesis 拿不到音訊串流，這是我們現況痛點）。
+- **分析（採用 / 不採用）**：
+  - ⚠️ **不採用 MOSS-TTS-Nano 當主力**：實測**純 CPU 合成 37 字＝42 秒**（總流程 ~45 秒）。我們是「LLM 回完即時唸出」的桌面互動，這速度無法接受。作者本人也明說「不適合即時串流對話」。→ 互動 TTS 仍以 **Edge-TTS（雲端、近即時、免費、回音訊）為首選**（同 R13/R17/R19/R22 結論）。
+  - ✅ **借概念①**：MOSS-TTS-Nano 列為「**完全離線 TTS 選項**」備查——當使用者要求零雲端依賴、且可容忍慢（搭配下方非同步模式）時可用。是 R22「離線 ASR(Sherpa)」的 TTS 對應。
+  - ✅ **借概念②（架構）**：**FastAPI 常駐服務**（模型常駐 + HTTP 呼叫）——未來若自架任何本地模型（TTS/ASR/向量）都用這招避免重載延遲。同 my-neuro(R24) 服務化、AIRI unspeech(R17) 思路。
+  - 🔭 **借概念③**：**非同步語音助理模式**（因 CPU 慢 → 不做秒答，改「語音交辦任務→背景執行→語音回報」）。可作為 VTube 未來「背景任務 + 語音回報」模式的點子；非核心互動路徑。
+  - ⛔ **ffmpeg→OGG 轉碼**：那是 Telegram 平台限制；我們是 Electron，直接用 Web Audio 播 WAV/MP3 即可，不需轉碼。
+  - 🔭 **ai小智語音模組**：xiaozhi 綁 ESP32 硬體生態，語音塊不易直接搬進 Electron；僅記錄，需要時再評估。
+- **決定**：🟡 部分採用（借「會回音訊的本地 TTS 選項 + FastAPI 常駐架構 + 非同步回報概念」；MOSS-TTS-Nano 因速度不列為互動主力）。
+- **落實 / 後續**：TTS 升級維持 **Edge-TTS 為互動首選**；`docs/` 另記「離線 TTS = MOSS-TTS-Nano（慢、需常駐服務）」當零雲端備案。若日後做本地推理服務，採 FastAPI 常駐模式。
+### R33 — p5.js WebGL 效能優化全紀錄（使用者自製，Fable 5；p5 3D 植物 demo）
+- **類型**：使用者**另一專案**的效能優化 playbook。把 p5.js WebGL 的 immediate mode 升級成遊戲引擎級 retained mode：① build/draw 分離（參數變才重算、之後每幀只畫）② batching（同類面片合批，draw call 1125→46）③ texture baking（靜態圖樣烤成貼圖、影子取最深值避免越疊越黑）④ retained geometry（`buildGeometry()` 幾何存進 GPU、每幀只 `model()`，CPU 從滿載→70% 閒置）⑤ 每幀只算與鏡頭相關部分（正反面預做、靠 GPU 深度測試挑面）。成果 23→60fps。
+- **與本專案關聯**：渲染棧與問題類型都不同。VTube 用 **pixi.js v6 + pixi-live2d-display**，**PixiJS 本身即 retained + batched**（精靈批次、GPU buffer 常駐），我們不寫 p5 那種每幀逐 shape 重建/上傳的 immediate-mode 迴圈。
+- **分析（採用 / 不採用）**：
+  - ⛔ **不適用主因**：本文解決的「p5 immediate mode 的 per-shape 手續費（CPU tessellate + 每 shape 重建 vertex buffer + draw call 爆量）」在我們這邊**不存在**——pixi/Live2D 外掛內部已做掉 batching/retained/baking 等。
+  - ⛔ 另一主因：VTube 只渲染**單一 Live2D 角色**、本就輕量，**無效能瓶頸**，不需要這些手動優化。
+  - 🔭 **唯一可留（心智模型）**：若未來自加大量自繪特效（R29 飄雪/點擊愛心、多角色同框、粒子），記得「**build once, draw many**」並用 PixiJS `ParticleContainer`/精靈批次，而非每幀重建。屬未來、非核心。
+- **決定**：⛔ 大致不適用（不同渲染棧、無此瓶頸）；僅保留「build-once-draw-many + 用 pixi 批次容器」心智模型備未來特效用。
+- **落實 / 後續**：目前無動作。未來若做大量 2D 特效再回看此心智模型。
+### R34 — vincentchiou/office-health-clock（辦公室健康時鐘） · https://github.com/vincentchiou/office-health-clock
+- **類型**：Python（Windows）桌面常駐 widget，MIT，v2.1。深色置頂時鐘＋久坐/喝水/用藥**強制確認提醒**＋天氣（Open-Meteo 免 key、IP 定位）＋**系統監控（CPU/GPU 溫度、CPU%、RAM/VRAM、CUDA）**＋開機自啟＋記住位置/可調大小。
+- **與本專案關聯**：**同樣是桌面常駐 widget**（精神相近），但本體是 Python 健康提醒 app、產品目的不同。使用者關注點＝系統監控（「不用開工作管理員」）。
+- **分析（採用 / 不採用）**：
+  - ✅ **原子寫入（tmp+rename）**：v2.1 設定檔改「先寫暫存再 rename」避免寫一半損壞。我們 `config.js`/`memory.js` 目前直接 `writeFileSync` → 改原子寫入是低成本穩健性提升，**直接適用**。
+  - 🟡 **健康提醒模式**（久坐/喝水/用藥到點提醒）：改由**角色語音/對話泡泡**提醒，與桌寵超搭；呼應 R20 PPet take-a-rest。
+  - 🟡 **記住視窗位置**：存/還原視窗座標（我們已 always-on-top，可補位置記憶）。
+  - 🔭 **系統監控面板（CPU/GPU/RAM）**：使用者最想要的「取代工作管理員」。但它靠 Python LibreHardwareMonitor/pynvml；Electron 下 CPU/RAM 用 Node `os` 易、**GPU 溫度/VRAM 需另接原生 helper**，且偏離「AI 助手」核心 → 未來選配。
+  - 🔭 **天氣（Open-Meteo 免 key）**：角色報天氣，可愛非核心。
+  - ⛔ 不採用：Python 棧本身、健康 app 核心定位、Windows 原生硬體讀取細節。
+  - 工程實踐（logging 不吞例外、執行緒鎖、清孤兒進程、31 單元測試）多為通用好習慣，我們已部分具備。
+- **決定**：🟡 部分採用（同為桌面 widget，借「原子寫入 + 健康提醒 + 記住位置」；系統監控/天氣觀望）。
+- **落實 / 後續**：可順手把 config/memory 改原子寫入（小修）；「健康提醒」與「記住視窗位置」列入 backlog（桌寵體驗加分項）。
+### R35 — craig7351/zombie-survivors（使用者自製：Claude + CC0 3D 模型的瀏覽器遊戲）
+- 連結：遊戲/介紹 https://craig7351.github.io/zombie-survivors/ ；素材 Quaternius CC0 https://quaternius.com/packs/zombieapocalypsekit.html
+- **類型**：使用者用 Claude 做的**瀏覽器 3D 殭屍生存遊戲**（Three.js 類、8 角色 7 王、武器疊加自動戰鬥、手機/電腦皆可、全球排行榜）。整款開源。美術全用開源 CC0 3D 模組（Quaternius），不讓 AI 生成。
+- **與本專案關聯**：產品類別/棧/目的都與 VTube（桌面 Electron + 2D Live2D AI 助手）不同；但其**製作方法論**與本專案策略高度一致。
+- **分析（採用 / 不採用）**：
+  - ⛔ **產品本身不適用**：瀏覽器 3D 動作遊戲，機制（武器疊加、排行榜、免下載）對桌面 AI 助手無可搬功能；3D CC0 模型非 Live2D 格式不能直接用。
+  - ✅ **方法論採用（重點）**：「**不讓 AI 硬畫美術 → 用現成免費 asset 包 → 讓 Claude 專注玩法/行為邏輯**」。正是 VTube 一貫做法：不生成 Live2D 模型、改用現成模型來源（R15/R16/R20/R26），Claude 專注 LLM/agent/語音/桌面整合。此案**驗證並強化既有資產策略**。
+  - 🔭 **未來伏筆**：若 VTube 走 VRM/3D（AIRI R17 提過 VRM），**Quaternius CC0** 為乾淨可商用 3D 素材來源備查。
+- **決定**：⛔ 產品不採用 / ✅ 方法論採用（強化「現成 asset + AI 專注邏輯」策略）。
+- **落實 / 後續**：無新功能動作；策略確認。3D 素材源 Quaternius 記入「素材來源」清單備未來 VRM 評估。
+### R36 — Studio0808 獨立工具：影音下載器 + AI 字幕工廠 · https://begin0808.github.io/studio0808/
+- **類型**：免安裝、解壓即用的 Windows 工具系列。① 影音下載器（斷線重試）② **AI 字幕工廠**：本地 Whisper 聽寫轉字幕，含 **自訂詞庫(prompt)**、**VAD 噪音過濾**、實時進度/ETA、**無顯卡自動降級 CPU**。為下載站、**無原始碼 repo**（Google Drive 載點）→ 只能借概念、無碼可抄。
+- **與本專案關聯**：VTube 有語音輸入（ASR 走 OpenAI 相容 `/audio/transcriptions` Whisper），此案的字幕工廠正對應。
+- **分析（採用 / 不採用）**：
+  - ✅ **Whisper 自訂詞庫（prompt）**：OpenAI/Whisper transcription 支援 `prompt` 參數，餵人名/專有名詞/角色名（小桶）可顯著提升辨識。我們 `asr.js` 目前只送 model/language、**未送 prompt** → 新增可設定 ASR 詞庫欄位 = 低成本準確度提升，直接適用。
+  - 🔭 **VAD 噪音過濾**：過濾雜訊、切有效語音；可改善目前「整段錄音直送」，並呼應 hands-free/barge-in（R17/R23）。中型新增。
+  - ⛔ **無顯卡降 CPU**：本地 Whisper 才需要；我們走雲端，不適用（「優雅降級」原則我們已有：agent 不支援工具自動降純對話）。
+  - ⛔ 影音下載器、即時進度/ETA UI（ASR 快不需要）、下載站本身。
+- **決定**：🟡 部分採用（借「Whisper prompt 詞庫」直接套；VAD 觀望）。
+- **落實 / 後續**：可順手在 `asr.js` + 設定面板加「轉寫詞庫(prompt)」欄位（小修）；VAD 併入未來 hands-free 評估。
 ## 附：業界方案參考（由方案比對得出，詳見 `docs/comparison-voice-ai-solutions.md`）
 - WebLLM（mlc-ai）、OpenAI Realtime（gpt-realtime）、Amica（VRM 3D）、Open-LLM-VTuber、awesome-ai-vtubers、faster-whisper / sherpa-onnx / Piper（離線語音）。
 
